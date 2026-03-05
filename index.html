@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Shared AI Chat</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    #chat { border: 1px solid #ccc; padding: 10px; height: 300px; overflow-y: scroll; }
+    .message { margin: 5px 0; padding: 5px; border-radius: 5px; max-width: 80%; }
+    .user { font-weight: bold; }
+    .ai { font-weight: bold; }
+
+    /* Public channel styles */
+    .public-user { background-color: #e0f7fa; color: #006064; }
+    .public-ai { background-color: #c8e6c9; color: #1b5e20; }
+
+    /* Secret channel styles */
+    .secret-user { background-color: #f3e5f5; color: #4a148c; font-style: italic; }
+    .secret-ai { background-color: #ffe0b2; color: #e65100; font-style: italic; }
+  </style>
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js"></script>
+</head>
+<body>
+  <h1>Shared AI Chat</h1>
+
+ <body>
+  <!-- Login box -->
+  <div>
+    <input type="text" id="username" placeholder="Enter your username">
+    <button onclick="setUser()">Login</button>
+  </div>
+
+  <!-- Channel buttons -->
+  <div>
+    <button onclick="joinChannel('public')">Join Public Channel</button>
+    <button onclick="joinChannel('secret')">Join Secret Channel</button>
+  </div>
+
+  <!-- Chat display -->
+  <div id="chat"></div>
+
+  <!-- Message input -->
+  <div>
+    <input type="text" id="message" placeholder="Type a message">
+    <button onclick="sendMessage()">Send</button>
+  </div>
+
+  <!-- Presence list -->
+  <ul id="userList"></ul>
+
+  <!-- Typing indicator -->
+  <div id="typingIndicator"></div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
+    import { getFirestore, collection, query, where, onSnapshot, addDoc } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
+
+    let userId;
+    let currentChannel;
+    let db;
+
+    // Initialize Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyAyKG7gEHfAe5Ql3-TSFzqi4Y317EuL11I",
+      authDomain: "simulationchat-eed7b.firebaseapp.com",
+      projectId: "simulationchat-eed7b",
+      storageBucket: "simulationchat-eed7b.firebasestorage.app",
+      messagingSenderId: "628021315916",
+      appId: "1:628021315916:web:8fd3e094b01782ba6d27e9"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    db = getFirestore(app);
+
+    // Set user ID
+    function setUser() {
+      userId = document.getElementById("username").value;
+      alert("Logged in as " + userId);
+    }
+
+    // Join a channel
+    function joinChannel(channel) {
+      currentChannel = channel;
+      alert("Joined channel: " + channel);
+
+      // Listen for messages
+      const historyQuery = query(collection(db, "history"), where("channel", "==", currentChannel));
+      onSnapshot(historyQuery, snapshot => {
+        const chatDiv = document.getElementById("chat");
+        chatDiv.innerHTML = "";
+        snapshot.forEach(doc => {
+          const m = doc.data();
+          const msgDiv = document.createElement("div");
+          msgDiv.classList.add("message");
+          msgDiv.textContent = `${m.name} (${new Date(m.timestamp).toLocaleTimeString()}): ${m.content}`;
+          chatDiv.appendChild(msgDiv);
+        });
+      });
+
+      // Presence
+      const presenceQuery = query(collection(db, "presence"), where("channel", "==", currentChannel));
+      onSnapshot(presenceQuery, snapshot => {
+        const userList = document.getElementById("userList");
+        userList.innerHTML = "";
+        snapshot.forEach(doc => {
+          const u = doc.data();
+          const li = document.createElement("li");
+          li.textContent = `${u.userId} (${u.status})`;
+          userList.appendChild(li);
+        });
+      });
+
+      // Typing
+      const typingQuery = query(collection(db, "typing"), where("channel", "==", currentChannel));
+      onSnapshot(typingQuery, snapshot => {
+        const typingDiv = document.getElementById("typingIndicator");
+        typingDiv.innerHTML = "";
+        snapshot.forEach(doc => {
+          const t = doc.data();
+          if (t.typing) typingDiv.textContent = `${t.userId} is typing...`;
+        });
+      });
+    }
+ async function sendMessage() {
+  const message = document.getElementById("message").value;
+  if (!currentChannel || !userId) {
+    alert("You must log in and join a channel first!");
+    return;
+  }
+
+ const response = await fetch(`http://localhost:3000/chat/${currentChannel}`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ userId, message })
+ });
+
+  const data = await response.json();
+  console.log("AI reply:", data.reply);
+
+  document.getElementById("message").value = "";
+}
+
+
+    // Typing indicator trigger
+    document.getElementById("message").addEventListener("input", () => {
+      if (!currentChannel || !userId) return;
+      // You can add typing presence logic here if needed
+    });
+
+    // Expose functions globally
+    window.setUser = setUser;
+    window.joinChannel = joinChannel;
+    window.sendMessage = sendMessage;
+  </script>
+</body>
+</html>
